@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Store</title>
+</head>
+<body>
+
+<nav>
+    <a href="/">Home</a>
+    <a href="/cart/">Cart</a>
+
+    <a href="/dashboard/">Dashboard</a>
+
+    {% if user.is_staff %}
+        <a href="/admin/">Admin</a>
+    {% endif %}
+</nav>
+
+<hr>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>

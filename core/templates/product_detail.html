@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>{{ product.title }}</h1>
+
+{% if product.image %}
+    <img src="{{ product.image.url }}" width="300">
+{% endif %}
+
+<p>{{ product.description }}</p>
+<p>{{ product.price }}</p>
+
+<a href="{% url 'add_to_cart' product.id %}">
+    Add to Cart
+</a>
+
+{% if product.file %}
+    <p><a href="{{ product.file.url }}">Download</a></p>
+{% endif %}
+
+{% endblock %}

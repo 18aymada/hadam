@@ -1,0 +1,23 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+
+<h1>Payment Successful 🎉</h1>
+
+<p>Order ID: {{ order.id }}</p>
+<p>Total: £{{ order.total }}</p>
+
+<hr>
+
+<h3>Downloads (Valid 72 hours)</h3>
+
+{% for item in order.orderitem_set.all %}
+    <p>
+        {{ item.product.title }}
+        <a href="{% url 'download_product' item.product.id %}">
+            Download
+        </a>
+    </p>
+{% endfor %}
+
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+
+<h1>Admin Dashboard</h1>
+
+<p>Total Orders: {{ total_orders }}</p>
+<p>Paid Orders: {{ paid_orders }}</p>
+<p>Pending Orders: {{ pending_orders }}</p>
+<p>Total Revenue: {{ total_revenue }}</p>
+
+<h3>Recent Orders</h3>
+
+{% for order in recent_orders %}
+<p>Order #{{ order.id }} - {{ order.total }}</p>
+{% endfor %}
+
+{% endblock %}
