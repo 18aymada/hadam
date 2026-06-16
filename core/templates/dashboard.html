@@ -1,13 +1,23 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
 {% block content %}
 
 <h1>Dashboard</h1>
 
-<ul>
-{% for product in products %}
-    <li>{{ product.title }} - {{ product.product_type }}</li>
+{% for p in purchases %}
+
+<div>
+    <h3>{{ p.product.name }}</h3>
+
+    {% if p.is_active %}
+        <a href="{% url 'download_product' p.product.id %}">
+            Download
+        </a>
+    {% else %}
+        <p>Expired</p>
+    {% endif %}
+</div>
+
 {% endfor %}
-</ul>
 
 {% endblock %}

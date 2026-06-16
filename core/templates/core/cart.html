@@ -1,14 +1,12 @@
-{% extends "core/base.html" %}
+{% extends 'core/base.html' %}
 
 {% block content %}
 
-<h1>Cart</h1>
+<h1>Your Cart</h1>
 
-{% for product in products %}
-<p>{{ product.title }} x {{ product.qty }} = {{ product.total_price }}</p>
+{% for item in cart_items %}
+    <p>{{ item.product.name }} - {{ item.quantity }}</p>
 {% endfor %}
-
-<h3>Total: {{ total }}</h3>
 
 <a href="/checkout/">Checkout</a>
 

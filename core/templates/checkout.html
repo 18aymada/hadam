@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Checkout</h1>
+
+{% for p in products %}
+<p>{{ p.name }} - {{ p.price }}</p>
+{% endfor %}
+
+<a href="/payment-success/">
+    <button>Complete Payment</button>
+</a>
+
+{% endblock %}

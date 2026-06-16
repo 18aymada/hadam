@@ -1,10 +1,23 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hadam ICT</title>
-</head>
-<body>
-    <h1>Welcome to Hadam ICT 🚀</h1>
-    <p>Deployment working on Render</p>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Hadam ICT Courses</h1>
+
+{% for product in products %}
+
+<div style="border:1px solid #ccc;padding:15px;margin:15px;">
+    <h2>{{ product.name }}</h2>
+    <p>{{ product.description }}</p>
+    <p>Price: {{ product.price }}</p>
+
+    <a href="{% url 'add_to_cart' product.id %}">
+        Add to Cart
+    </a>
+</div>
+
+{% empty %}
+<p>No courses available</p>
+{% endfor %}
+
+{% endblock %}

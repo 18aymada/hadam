@@ -1,168 +1,381 @@
 import stripe
+
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Sum
-from django.http import FileResponse, HttpResponseForbidden
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.http import (
+    HttpResponse,
+    HttpResponseForbidden,
+    FileResponse
+)
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.models import User
 
-from .models import Product, Order, OrderItem, DownloadToken
+from .models import Product, Purchase
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
 
+# ======================
+# HOME
+# ======================
 
 def home(request):
     products = Product.objects.all()
-    return render(request, 'core/home.html', {'products': products})
+
+    return render(
+        request,
+        "home.html",
+        {
+            "products": products
+        }
+    )
 
 
-def staff_only(user):
-    return user.is_staff
+# ======================
+# CART
+# ======================
+
+def add_to_cart(request, id):
+
+    cart = request.session.get("cart", [])
+
+    if id not in cart:
+        cart.append(id)
+
+    request.session["cart"] = cart
+
+    return redirect("cart")
 
 
-@login_required
-@user_passes_test(staff_only)
-def dashboard(request):
-    total_orders = Order.objects.count()
-    total_revenue = Order.objects.filter(is_paid=True).aggregate(Sum('total'))['total__sum'] or 0
-    paid_orders = Order.objects.filter(is_paid=True).count()
-    pending_orders = Order.objects.filter(is_paid=False).count()
-    recent_orders = Order.objects.order_by('-created_at')[:5]
 
-    return render(request, 'core/dashboard.html', {
-        'total_orders': total_orders,
-        'total_revenue': total_revenue,
-        'paid_orders': paid_orders,
-        'pending_orders': pending_orders,
-        'recent_orders': recent_orders,
-    })
+def cart(request):
 
+    cart_ids = request.session.get("cart", [])
 
-def get_cart(request):
-    return request.session.get('cart', {})
+    products = Product.objects.filter(
+        id__in=cart_ids
+    )
+
+    return render(
+        request,
+        "cart.html",
+        {
+            "products": products
+        }
+    )
 
 
-def save_cart(request, cart):
-    request.session['cart'] = cart
-    request.session.modified = True
+
+def remove_from_cart(request, id):
+
+    cart = request.session.get("cart", [])
+
+    if id in cart:
+        cart.remove(id)
+
+    request.session["cart"] = cart
+
+    return redirect("cart")
 
 
-def add_to_cart(request, product_id):
-    cart = get_cart(request)
-    cart[str(product_id)] = cart.get(str(product_id), 0) + 1
-    save_cart(request, cart)
-    return redirect('cart')
+
+# ======================
+# STRIPE CHECKOUT
+# ======================
+
+def checkout(request):
+
+    cart_ids = request.session.get(
+        "cart",
+        []
+    )
+
+    products = Product.objects.filter(
+        id__in=cart_ids
+    )
 
 
-def remove_from_cart(request, product_id):
-    cart = get_cart(request)
-    cart.pop(str(product_id), None)
-    save_cart(request, cart)
-    return redirect('cart')
+    stripe.api_key = settings.STRIPE_SECRET_KEY
 
-
-def cart_view(request):
-    cart = get_cart(request)
-    products = []
-    total = 0
-
-    for pid, qty in cart.items():
-        product = get_object_or_404(Product, id=pid)
-        product.qty = qty
-        product.total_price = product.price * qty
-        total += product.total_price
-        products.append(product)
-
-    return render(request, 'core/cart.html', {
-        'products': products,
-        'total': total
-    })
-
-
-@login_required
-def create_checkout_session(request):
-    cart = get_cart(request)
 
     line_items = []
-    total = 0
 
-    for pid, qty in cart.items():
-        product = Product.objects.get(id=pid)
+
+    for product in products:
 
         line_items.append({
+
             "price_data": {
+
                 "currency": "usd",
-                "product_data": {"name": product.title},
-                "unit_amount": int(product.price * 100),
+
+                "product_data": {
+
+                    "name": product.name
+
+                },
+
+                "unit_amount":
+                    int(product.price * 100),
+
             },
-            "quantity": qty,
+
+            "quantity": 1,
+
         })
 
-        total += float(product.price) * qty
 
     session = stripe.checkout.Session.create(
-        payment_method_types=['card'],
+
+        payment_method_types=[
+
+            "card"
+
+        ],
+
         line_items=line_items,
-        mode='payment',
-        success_url=request.build_absolute_uri('/payment-success/?session_id={CHECKOUT_SESSION_ID}'),
-        cancel_url=request.build_absolute_uri('/cart/'),
+
+        mode="payment",
+
+
+        success_url=request.build_absolute_uri(
+            "/payment-success/"
+        ),
+
+
+        cancel_url=request.build_absolute_uri(
+            "/cart/"
+        ),
+
+
+        metadata={
+
+            "user_id":
+                str(request.user.id),
+
+
+            "cart_ids":
+                ",".join(
+                    map(str, cart_ids)
+                )
+
+        }
+
     )
 
-    Order.objects.create(
-        user=request.user,
-        total=total,
-        stripe_session_id=session.id,
-        is_paid=False
+
+    return redirect(
+        session.url
     )
 
-    return redirect(session.url)
 
 
-@login_required
+# ======================
+# PAYMENT SUCCESS
+# ======================
+
 def payment_success(request):
-    session_id = request.GET.get('session_id')
 
-    order = Order.objects.get(stripe_session_id=session_id)
-    session = stripe.checkout.Session.retrieve(session_id)
+    return render(
+        request,
+        "payment_success.html"
+    )
 
-    if session.payment_status == "paid":
-        order.is_paid = True
-        order.save()
 
-        cart = request.session.get('cart', {})
 
-        for pid, qty in cart.items():
-            product = Product.objects.get(id=pid)
+# ======================
+# STRIPE WEBHOOK
+# ======================
 
-            OrderItem.objects.create(
-                order=order,
+@csrf_exempt
+def stripe_webhook(request):
+
+    payload = request.body
+
+    sig_header = request.META.get(
+        "HTTP_STRIPE_SIGNATURE"
+    )
+
+
+    stripe.api_key = (
+        settings.STRIPE_SECRET_KEY
+    )
+
+
+    try:
+
+        event = stripe.Webhook.construct_event(
+
+            payload,
+
+            sig_header,
+
+            settings.STRIPE_WEBHOOK_SECRET
+
+        )
+
+
+    except Exception:
+
+        return HttpResponse(
+            status=400
+        )
+
+
+
+    if event["type"] == "checkout.session.completed":
+
+
+        session = event["data"]["object"]
+
+
+        user_id = session["metadata"]["user_id"]
+
+        cart_ids = session["metadata"]["cart_ids"]
+
+
+
+        user = User.objects.get(
+            id=user_id
+        )
+
+
+
+        for product_id in cart_ids.split(","):
+
+
+            product = Product.objects.get(
+                id=product_id
+            )
+
+
+            Purchase.objects.get_or_create(
+
+                user=user,
+
                 product=product,
-                price=product.price,
-                quantity=qty
+
+                stripe_session_id=session["id"]
+
             )
 
-            DownloadToken.objects.create(
-                user=request.user,
-                product=product
-            )
 
-        request.session['cart'] = {}
 
-    return render(request, 'core/success.html', {'order': order})
+    return HttpResponse(
+        status=200
+    )
 
+
+
+# ======================
+# DASHBOARD
+# ======================
 
 @login_required
-def download_product(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
+def dashboard(request):
 
-    token = DownloadToken.objects.filter(
-        user=request.user,
-        product=product
-    ).order_by('-created_at').first()
+    purchases = Purchase.objects.filter(
+        user=request.user
+    )
 
-    if not token:
-        return HttpResponseForbidden("No download access")
 
-    if not token.is_valid():
-        return HttpResponseForbidden("Download expired (72 hours)")
+    return render(
 
-    return FileResponse(product.file.open(), as_attachment=True)
+        request,
+
+        "dashboard.html",
+
+        {
+
+            "purchases": purchases
+
+        }
+
+    )
+
+
+
+# ======================
+# SECURE DOWNLOAD
+# ======================
+
+@login_required
+def download_product(request, id):
+
+    product = get_object_or_404(
+        Product,
+        id=id
+    )
+
+
+    try:
+
+        purchase = Purchase.objects.get(
+
+            user=request.user,
+
+            product=product
+
+        )
+
+
+
+        if not purchase.is_active():
+
+            return HttpResponseForbidden(
+                "Download expired"
+            )
+
+
+
+        if not product.file:
+
+            return HttpResponseForbidden(
+                "No file available"
+            )
+
+
+
+        return FileResponse(
+
+            product.file.open(),
+
+            as_attachment=True
+
+        )
+
+
+    except Purchase.DoesNotExist:
+
+
+        return HttpResponseForbidden(
+            "You did not purchase this product"
+        )
+
+
+
+# ======================
+# REGISTER
+# ======================
+
+def register(request):
+
+    return render(
+        request,
+        "register.html"
+    )
+
+
+
+# ======================
+# LOGOUT
+# ======================
+
+def user_logout(request):
+
+    logout(request)
+
+    return redirect(
+        "home"
+    )

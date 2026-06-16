@@ -1,14 +1,16 @@
-{% extends "core/base.html" %}
+{% extends 'core/base.html' %}
 
 {% block content %}
 
 <h1>Products</h1>
 
-{% for product in products %}
-    <div>
-        <h3>{{ product.title }}</h3>
-        <p>{{ product.price }}</p>
-        <a href="{% url 'add_to_cart' product.id %}">Add to Cart</a>
+{% for p in products %}
+    <div style="border:1px solid #ccc; padding:10px; margin:10px;">
+        <h3>{{ p.name }}</h3>
+        <p>{{ p.description }}</p>
+        <p><b>${{ p.price }}</b></p>
+
+        <a href="/add/{{ p.id }}/">Add to Cart</a>
     </div>
 {% endfor %}
 

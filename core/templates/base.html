@@ -1,22 +1,39 @@
-<nav>
-    <a href="/">Home</a>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hadam ICT</title>
+</head>
+
+<body>
+
+<nav style="padding:10px; background:#f2f2f2;">
+
+    <a href="/">Home</a> |
 
     {% if user.is_authenticated %}
-        <a href="/dashboard/">Dashboard</a>
-        <a href="/cart/">Cart</a>
 
-        <a href="/admin/">Admin</a>
+        <a href="/cart/">Cart</a> |
+        <a href="/checkout/">Checkout</a> |
+        <a href="/logout/">Logout</a> |
 
-        <form method="post" action="/logout/" style="display:inline;">
-            {% csrf_token %}
-            <button type="submit">Logout</button>
-        </form>
+        {% if user.is_superuser %}
+            <a href="/dashboard/">Dashboard</a> |
+            <a href="/admin/">Admin</a>
+        {% endif %}
 
     {% else %}
-        <a href="/accounts/login/">Login</a>
+
+        <a href="/login/">Login</a> |
         <a href="/register/">Register</a>
+
     {% endif %}
+
 </nav>
 
 <hr>
-{% block content %}{% endblock %}
+
+{% block content %}
+{% endblock %}
+
+</body>
+</html>
